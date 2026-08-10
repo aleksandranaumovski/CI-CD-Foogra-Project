@@ -1,0 +1,55 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: foogra_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: foogra
+      MYSQL_USER: foogra
+      MYSQL_PASSWORD: secret
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Second database used only by the automated test-suite, so `php artisan test`
+  # never truncates the demo data you are showing off.
+  mysql_test:
+    image: mysql:8.4
+    container_name: foogra_mysql_test
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: foogra_test
+      MYSQL_USER: foogra
+      MYSQL_PASSWORD: secret
+    command: >
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3308:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: foogra_mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI — password-reset mails land here
+
+volumes:
+  mysql_data:

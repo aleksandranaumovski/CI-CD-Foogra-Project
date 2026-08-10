@@ -1,0 +1,988 @@
+/*
+ * Styles for the pieces the Foogra template handled with jQuery plugins, plus
+ * the small amount of new UI the CRUD app needs (dashboard, toasts, skeletons).
+ *
+ * Everything reuses the theme's palette and type scale so the additions sit
+ * inside the original design rather than beside it. Nothing here overrides the
+ * template's own rules — the ported markup keeps its original class names.
+ */
+
+:root {
+  --foogra-primary: #f0563f;
+  --foogra-ink: #333;
+  --foogra-muted: #999;
+  --foogra-line: #ededed;
+  --foogra-surface: #fff;
+  --foogra-bg: #f8f8f8;
+  --foogra-radius: 5px;
+  --foogra-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ------------------------------------------------------------------ helpers */
+
+.foogra-muted {
+  color: var(--foogra-muted);
+  font-size: 13px;
+}
+
+.foogra-field-error {
+  display: block;
+  margin-top: 4px;
+  color: #e3464c;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.foogra-alert {
+  padding: 12px 15px;
+  margin-bottom: 15px;
+  border-radius: var(--foogra-radius);
+  font-size: 14px;
+}
+
+.foogra-alert.error {
+  background: #fdecec;
+  border: 1px solid #f6c9c9;
+  color: #b3363b;
+}
+
+.foogra-alert.success {
+  background: #eaf7ee;
+  border: 1px solid #c3e6cd;
+  color: #24713c;
+}
+
+.foogra-form-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+}
+
+.btn_1.outline {
+  background: transparent;
+  border: 2px solid var(--foogra-line);
+  color: var(--foogra-ink);
+}
+
+.btn_1.outline:hover {
+  border-color: var(--foogra-primary);
+  color: var(--foogra-primary);
+  background: transparent;
+}
+
+.btn_1.danger {
+  background: #e3464c;
+}
+
+.btn_1.small,
+.btn_1.outline.small {
+  padding: 7px 15px;
+  font-size: 12px;
+}
+
+.btn_1[disabled],
+button[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* --------------------------------------------------- hero: fullscreen video */
+
+/*
+ * The template used the jarallax plugin to inject a background <video>. A real
+ * element covering the hero produces the same result without the dependency.
+ */
+.foogra-hero-video {
+  position: relative;
+  overflow: hidden;
+  background: #1a1a1a;
+}
+
+/*
+ * Specificity matters, and getting it wrong here renders the hero as a flat
+ * dark rectangle.
+ *
+ * home.css targets `.hero_single.fullscreen.video_bg video` (0,3,1) with
+ * `z-index: -1`, plus `width/height: auto` and `min-width/min-height: 100%` --
+ * the pre-object-fit way of covering a box. In the template that worked because
+ * jarallax injected the video into its own container; here the video is a direct
+ * child of `.hero_single`, which carries an opaque `#1a1a1a` background, so a
+ * negative z-index paints the video *behind* that background and it vanishes.
+ *
+ * A plain `.foogra-hero-media` selector is (0,1,0) and loses. Qualifying it with
+ * the same three classes plus the class itself takes this to (0,4,1) so it wins,
+ * and object-fit does the covering.
+ */
+.hero_single.fullscreen.video_bg video.foogra-hero-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.foogra-hero-mask {
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+/* The inlined wordmark takes its text colour from the header state. */
+.foogra-logo { color: #fff; display: inline-block; line-height: 0; }
+.foogra-logo.is-stuck { color: var(--foogra-ink); }
+
+.foogra-hero-meta {
+  color: #fff;
+  font-size: 15px;
+}
+
+.foogra-hero-meta a {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.foogra-hero-meta .loc_open,
+.foogra-hero-meta .loc_closed {
+  margin-left: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foogra-hero-media {
+    display: none;
+  }
+
+  .foogra-hero-video {
+    background: #1a1a1a url('/img/hero_general.jpg') center / cover no-repeat;
+  }
+}
+
+/* --------------------------------------------------------------- carousels */
+
+/* Replaces Owl Carousel. Slide count per breakpoint arrives as CSS variables. */
+.foogra-carousel {
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.foogra-carousel-viewport {
+  overflow: hidden;
+}
+
+.foogra-carousel-track {
+  display: flex;
+  gap: 0;
+  backface-visibility: hidden;
+}
+
+.foogra-carousel-slide {
+  flex: 0 0 calc(100% / var(--slides-base));
+  min-width: 0;
+  padding: 0 10px;
+}
+
+@media (min-width: 576px) {
+  .foogra-carousel-slide { flex-basis: calc(100% / var(--slides-sm)); }
+}
+
+@media (min-width: 768px) {
+  .foogra-carousel-slide { flex-basis: calc(100% / var(--slides-md)); }
+}
+
+@media (min-width: 992px) {
+  .foogra-carousel-slide { flex-basis: calc(100% / var(--slides-lg)); }
+}
+
+@media (min-width: 1200px) {
+  .foogra-carousel-slide { flex-basis: calc(100% / var(--slides-xl)); }
+}
+
+.foogra-carousel-nav {
+  position: absolute;
+  top: 38%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  color: var(--foogra-ink);
+  box-shadow: var(--foogra-shadow);
+  font-size: 20px;
+  line-height: 1;
+  transition: all 0.25s ease;
+}
+
+.foogra-carousel-nav:hover:not([disabled]) {
+  background: var(--foogra-primary);
+  color: #fff;
+}
+
+.foogra-carousel-nav[disabled] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.foogra-carousel-nav.prev { left: -6px; }
+.foogra-carousel-nav.next { right: -6px; }
+
+.foogra-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.foogra-carousel-dots button {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: #d8d8d8;
+  transition: all 0.25s ease;
+}
+
+.foogra-carousel-dots button.active {
+  width: 22px;
+  border-radius: 4px;
+  background: var(--foogra-primary);
+}
+
+/* The categories carousel keeps the theme's tile styling. */
+
+/*
+ * Equal-height tiles.
+ *
+ * The theme's tile is `padding: 70px 20px` with no height, so its height is
+ * whatever the content needs. "Japanese - Sushi" is the longest name and wraps
+ * onto a second line, which made that one tile taller than the rest.
+ *
+ * Embla's track is already a flex row, so the slides themselves stretch to the
+ * tallest — it was only the tile inside that did not fill its slide. Stretching
+ * the chain (slide -> .item -> a) makes every tile match the tallest, and keeps
+ * working if a longer cuisine name is added later. Scoped to this carousel so
+ * the restaurant strips are untouched.
+ *
+ * The count badge is `position: absolute` against this `a` (which stays
+ * `position: relative` from home.css), so flex does not move it.
+ *
+ * Specificity matters here. home.css sets `display: block` via
+ * `.owl-theme.categories_carousel .item a` (0,3,1); a plainer
+ * `.categories_carousel .item a` (0,2,1) loses to it and the flex never
+ * applies. Including `.owl-theme` and the slide class takes this to (0,4,1) so
+ * it wins regardless of stylesheet order.
+ */
+.categories_carousel .foogra-carousel-slide {
+  display: flex;
+}
+
+.categories_carousel .foogra-carousel-slide .item {
+  display: flex;
+  width: 100%;
+}
+
+.owl-theme.categories_carousel .foogra-carousel-slide .item a {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------ wishlist heart */
+
+/*
+ * Bottom-right of the figure: the theme puts the discount ribbon at
+ * top/right 12–15px (z-index 9) and the category chip top-left, so this is the
+ * only corner left free. z-index clears both the ribbon and the .strip_info
+ * overlay that covers the whole figure.
+ */
+.foogra-heart {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #6a6a6a;
+  font-size: 16px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.foogra-heart:hover { color: var(--foogra-primary); transform: scale(1.08); }
+.foogra-heart.is-saved { background: var(--foogra-primary); color: #fff; }
+.btn_hero.wishlist.active { color: var(--foogra-primary); }
+
+/* ------------------------------------------------------------------- states */
+
+.foogra-skeleton {
+  display: block;
+  background: linear-gradient(90deg, #eee 25%, #f6f6f6 37%, #eee 63%);
+  background-size: 400% 100%;
+  animation: foogra-shimmer 1.3s ease-in-out infinite;
+}
+
+.foogra-skeleton + .foogra-skeleton { margin-top: 8px; }
+
+@keyframes foogra-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+.foogra-strip-skeleton {
+  background: #fff;
+  border-radius: var(--foogra-radius);
+  overflow: hidden;
+  margin-bottom: 30px;
+}
+
+.foogra-empty {
+  padding: 60px 20px;
+  text-align: center;
+  color: var(--foogra-muted);
+}
+
+.foogra-empty i { font-size: 52px; color: #d5d5d5; display: block; margin-bottom: 15px; }
+.foogra-empty h4 { color: var(--foogra-ink); font-size: 20px; margin-bottom: 8px; }
+.foogra-empty.error i { color: #e3464c; }
+
+.foogra-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--foogra-muted);
+}
+
+.foogra-spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--foogra-line);
+  border-top-color: var(--foogra-primary);
+  border-radius: 50%;
+  animation: foogra-spin 0.7s linear infinite;
+}
+
+@keyframes foogra-spin { to { transform: rotate(360deg); } }
+
+/* Dims the grid while the next page of results loads. */
+.foogra-refreshing { opacity: 0.55; transition: opacity 0.15s ease; pointer-events: none; }
+
+/* ------------------------------------------------------------------- toasts */
+
+.foogra-toasts {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: min(360px, calc(100vw - 40px));
+}
+
+.foogra-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 16px;
+  border-radius: var(--foogra-radius);
+  background: #2b2b2b;
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  animation: foogra-toast-in 0.22s ease;
+}
+
+.foogra-toast.success { background: #24713c; }
+.foogra-toast.error { background: #b3363b; }
+.foogra-toast i { font-size: 17px; flex-shrink: 0; }
+
+@keyframes foogra-toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* -------------------------------------------------------------------- modal */
+
+.foogra-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 15px;
+  overflow-y: auto;
+  background: rgba(11, 11, 11, 0.8);
+  animation: foogra-fade 0.2s ease;
+}
+
+@keyframes foogra-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.foogra-modal {
+  position: relative;
+  display: block !important;
+  width: 100%;
+  max-width: 420px;
+  margin: auto;
+  background: #fff;
+  border-radius: var(--foogra-radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+}
+
+.foogra-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.foogra-demo-hint {
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  border: 1px dashed #d9d9d9;
+  border-radius: var(--foogra-radius);
+  background: var(--foogra-bg);
+  font-size: 12.5px;
+  color: #666;
+}
+
+.foogra-demo-hint code {
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #ececec;
+  color: #444;
+}
+
+.foogra-demo-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.foogra-demo-buttons button {
+  padding: 4px 11px;
+  border: 1px solid #dcdcdc;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 12px;
+  color: #555;
+  transition: all 0.2s ease;
+}
+
+.foogra-demo-buttons button:hover {
+  border-color: var(--foogra-primary);
+  color: var(--foogra-primary);
+}
+
+/* ---------------------------------------------------------------- lightbox */
+
+.foogra-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 3500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgba(11, 11, 11, 0.94);
+  animation: foogra-fade 0.2s ease;
+}
+
+.foogra-lightbox figure {
+  position: relative;
+  margin: 0;
+  max-width: 100%;
+  max-height: 100%;
+  text-align: center;
+}
+
+.foogra-lightbox img {
+  max-width: 100%;
+  max-height: 78vh;
+  border-radius: var(--foogra-radius);
+}
+
+.foogra-lightbox figcaption {
+  margin-top: 12px;
+  color: #ddd;
+  font-size: 14px;
+}
+
+.foogra-lightbox-count {
+  display: block;
+  margin-top: 6px;
+  color: #888;
+  font-size: 12px;
+}
+
+.foogra-lightbox-close,
+.foogra-lightbox-nav {
+  position: absolute;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.foogra-lightbox-close:hover,
+.foogra-lightbox-nav:hover { background: rgba(255, 255, 255, 0.25); }
+
+.foogra-lightbox-close {
+  top: 20px;
+  right: 24px;
+  width: 42px;
+  height: 42px;
+  font-size: 20px;
+}
+
+.foogra-lightbox-nav {
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  font-size: 26px;
+}
+
+.foogra-lightbox-nav.prev { left: 20px; }
+.foogra-lightbox-nav.next { right: 20px; }
+
+/* ------------------------------------------------------------------ listing */
+
+.foogra-clear-filters { margin-left: 10px; }
+.foogra-page-gap { padding: 0 6px; color: var(--foogra-muted); }
+.pagination_fg a.disabled { opacity: 0.4; pointer-events: none; }
+
+/* ------------------------------------------------------------------- detail */
+
+.foogra-veg {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #e7f5ec;
+  color: #24713c;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
+.foogra-allergens { display: block; color: var(--foogra-muted); font-size: 12px; font-style: italic; }
+
+.foogra-date {
+  margin-bottom: 10px;
+  height: 45px;
+}
+
+.foogra-notes { margin: 10px 0; font-size: 14px; }
+.foogra-guest-fields { margin-top: 10px; }
+.foogra-guest-fields .form-control { margin-bottom: 8px; }
+.foogra-signin-nudge { margin: 4px 0 10px; }
+
+.box_booking .dropdown-menu { width: 100%; padding: 0; }
+.box_booking .dropdown-menu-content { max-height: 320px; overflow-y: auto; padding: 15px; }
+
+.foogra-review-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 25px;
+}
+
+.foogra-review-toolbar .styled-select { min-width: 190px; }
+
+.foogra-review-form,
+.foogra-reply-form {
+  padding: 22px;
+  margin-bottom: 30px;
+  border: 1px solid var(--foogra-line);
+  border-radius: var(--foogra-radius);
+  background: var(--foogra-bg);
+}
+
+.foogra-reply-form { margin-top: 15px; padding: 15px; }
+
+.foogra-score-input { margin-bottom: 16px; }
+
+.foogra-score-input label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.foogra-score-input strong { color: var(--foogra-primary); }
+.foogra-score-input input[type='range'] { width: 100%; accent-color: var(--foogra-primary); }
+
+.foogra-review-average {
+  padding: 10px 14px;
+  margin-bottom: 18px;
+  border-radius: var(--foogra-radius);
+  background: #fff;
+  border: 1px solid var(--foogra-line);
+  font-size: 14px;
+}
+
+.foogra-review-average strong { color: var(--foogra-primary); font-size: 18px; }
+#reviews .review_content ul a.active { color: var(--foogra-primary); font-weight: 600; }
+
+/* Replaces the theme's JS-driven sticky sidebar. */
+#sidebar_fixed { position: sticky; top: 90px; align-self: flex-start; }
+
+@media (max-width: 991px) {
+  #sidebar_fixed { position: static; }
+}
+
+/* ----------------------------------------------------------------- account */
+
+.foogra-page-head {
+  padding: 40px 0 25px;
+  border-bottom: 1px solid var(--foogra-line);
+  margin-bottom: 35px;
+}
+
+.foogra-page-head h1 { font-size: 28px; margin-bottom: 5px; }
+
+.foogra-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 25px;
+}
+
+.foogra-tabs button {
+  padding: 8px 18px;
+  border: 1px solid var(--foogra-line);
+  border-radius: 20px;
+  background: #fff;
+  font-size: 13px;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.foogra-tabs button.active {
+  background: var(--foogra-primary);
+  border-color: var(--foogra-primary);
+  color: #fff;
+}
+
+.foogra-booking-card {
+  display: flex;
+  gap: 18px;
+  padding: 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--foogra-line);
+  border-radius: var(--foogra-radius);
+  background: #fff;
+}
+
+.foogra-booking-card img {
+  width: 120px;
+  height: 90px;
+  object-fit: cover;
+  border-radius: var(--foogra-radius);
+  flex-shrink: 0;
+}
+
+.foogra-booking-card .details { flex: 1; min-width: 0; }
+.foogra-booking-card h4 { font-size: 17px; margin-bottom: 4px; }
+.foogra-booking-card dl { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 10px 0 0; font-size: 13px; }
+.foogra-booking-card dt { color: var(--foogra-muted); font-weight: 400; margin-right: 5px; }
+.foogra-booking-card dd { margin: 0; font-weight: 500; }
+
+@media (max-width: 575px) {
+  .foogra-booking-card { flex-direction: column; }
+  .foogra-booking-card img { width: 100%; height: 150px; }
+}
+
+.foogra-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.foogra-badge.pending { background: #fff3e0; color: #b26a00; }
+.foogra-badge.confirmed { background: #e7f5ec; color: #24713c; }
+.foogra-badge.seated { background: #e3f0fb; color: #1a5f9c; }
+.foogra-badge.completed { background: #eeeeee; color: #555; }
+.foogra-badge.cancelled { background: #fdecec; color: #b3363b; }
+.foogra-badge.rejected { background: #fdecec; color: #b3363b; }
+.foogra-badge.approved { background: #e7f5ec; color: #24713c; }
+.foogra-badge.draft { background: #eeeeee; color: #555; }
+.foogra-badge.published { background: #e7f5ec; color: #24713c; }
+.foogra-badge.archived { background: #f0e6f6; color: #6b3f8c; }
+.foogra-badge.admin { background: #fdecec; color: #b3363b; }
+.foogra-badge.owner { background: #e3f0fb; color: #1a5f9c; }
+.foogra-badge.customer { background: #eeeeee; color: #555; }
+
+/* ---------------------------------------------------------------- dashboard */
+
+.admin-shell { display: flex; min-height: 100vh; background: var(--foogra-bg); }
+
+.admin-sidebar {
+  width: 250px;
+  flex-shrink: 0;
+  background: #1f2229;
+  color: #b8bcc6;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-sidebar .brand {
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar .brand img { width: 120px; }
+.admin-sidebar .brand small { display: block; margin-top: 6px; font-size: 11px; color: #6f7480; letter-spacing: 1px; }
+
+.admin-sidebar nav { padding: 14px 0; flex: 1; }
+
+.admin-sidebar nav a {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 22px;
+  color: #b8bcc6;
+  font-size: 14px;
+  transition: all 0.18s ease;
+}
+
+.admin-sidebar nav a:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+
+.admin-sidebar nav a.active {
+  background: rgba(240, 86, 63, 0.14);
+  color: #fff;
+  box-shadow: inset 3px 0 0 var(--foogra-primary);
+}
+
+.admin-sidebar nav a i { font-size: 17px; width: 20px; }
+
+.admin-sidebar nav a .count {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: var(--foogra-primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.admin-sidebar .foot { padding: 16px 22px; border-top: 1px solid rgba(255, 255, 255, 0.08); font-size: 13px; }
+.admin-sidebar .foot a { color: #b8bcc6; display: block; padding: 4px 0; }
+.admin-sidebar .foot a:hover { color: #fff; }
+
+.admin-main { flex: 1; min-width: 0; padding: 28px 32px 60px; }
+
+.admin-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+
+.admin-topbar h1 { font-size: 24px; margin: 0; }
+.admin-topbar p { margin: 4px 0 0; color: var(--foogra-muted); font-size: 13px; }
+
+.admin-mobile-toggle { display: none; }
+
+@media (max-width: 991px) {
+  .admin-shell { flex-direction: column; }
+  .admin-sidebar { width: 100%; }
+  .admin-sidebar nav { display: flex; overflow-x: auto; padding: 0; }
+  .admin-sidebar nav a { white-space: nowrap; padding: 14px 16px; }
+  .admin-sidebar nav a.active { box-shadow: inset 0 -3px 0 var(--foogra-primary); }
+  .admin-sidebar .foot { display: none; }
+  .admin-main { padding: 20px 16px 50px; }
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.stat-card {
+  padding: 20px;
+  border-radius: var(--foogra-radius);
+  background: #fff;
+  box-shadow: var(--foogra-shadow);
+}
+
+.stat-card .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--foogra-muted); }
+.stat-card .value { font-size: 30px; font-weight: 600; color: var(--foogra-ink); line-height: 1.2; margin-top: 6px; }
+.stat-card .hint { font-size: 12px; color: var(--foogra-muted); margin-top: 4px; }
+.stat-card .value.accent { color: var(--foogra-primary); }
+
+.admin-panel {
+  padding: 22px;
+  margin-bottom: 24px;
+  border-radius: var(--foogra-radius);
+  background: #fff;
+  box-shadow: var(--foogra-shadow);
+}
+
+.admin-panel > h3 {
+  font-size: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--foogra-line);
+}
+
+.admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+.admin-table th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--foogra-muted);
+  border-bottom: 1px solid var(--foogra-line);
+  white-space: nowrap;
+}
+
+.admin-table td { padding: 12px; border-bottom: 1px solid #f4f4f4; vertical-align: middle; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-table tbody tr:hover { background: #fcfcfc; }
+.admin-table .actions { display: flex; gap: 6px; justify-content: flex-end; }
+.admin-table-scroll { overflow-x: auto; }
+
+.admin-table .thumb {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+.icon-btn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--foogra-line);
+  border-radius: 4px;
+  background: #fff;
+  color: #666;
+  font-size: 14px;
+  line-height: 1;
+  transition: all 0.18s ease;
+}
+
+.icon-btn:hover { border-color: var(--foogra-primary); color: var(--foogra-primary); }
+.icon-btn.danger:hover { border-color: #e3464c; color: #e3464c; }
+
+.admin-filters {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.admin-filters input,
+.admin-filters select {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--foogra-line);
+  border-radius: 4px;
+  font-size: 13px;
+  background: #fff;
+}
+
+.admin-filters input[type='search'] { min-width: 220px; }
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.admin-form-grid .full { grid-column: 1 / -1; }
+
+.admin-form-grid label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 5px;
+}
+
+.admin-form-grid input,
+.admin-form-grid select,
+.admin-form-grid textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--foogra-line);
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.admin-form-grid input:focus,
+.admin-form-grid select:focus,
+.admin-form-grid textarea:focus {
+  outline: none;
+  border-color: var(--foogra-primary);
+}
+
+.admin-chip-input { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.admin-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--foogra-bg);
+  border: 1px solid var(--foogra-line);
+  font-size: 12px;
+}
+
+.admin-chip button { border: none; background: none; color: var(--foogra-muted); line-height: 1; }
+.admin-chip button:hover { color: #e3464c; }
+
+/* Minimal bar chart for the bookings trend — no charting library needed. */
+.trend-chart { display: flex; align-items: flex-end; gap: 4px; height: 110px; margin-top: 6px; }
+.trend-chart .bar { flex: 1; background: #ececec; border-radius: 3px 3px 0 0; position: relative; min-height: 3px; }
+.trend-chart .bar span { display: block; width: 100%; background: var(--foogra-primary); border-radius: 3px 3px 0 0; }
+.trend-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--foogra-muted); }
+
+.hours-grid { display: grid; grid-template-columns: 110px 1fr 1fr 90px; gap: 8px; align-items: center; font-size: 13px; }
+.hours-grid .head { font-size: 11px; text-transform: uppercase; color: var(--foogra-muted); letter-spacing: 0.5px; }
+.hours-grid input[type='time'] { width: 100%; padding: 6px 8px; border: 1px solid var(--foogra-line); border-radius: 4px; }
+
+@media (max-width: 575px) {
+  .hours-grid { grid-template-columns: 1fr 1fr; }
+  .hours-grid .head { display: none; }
+}
