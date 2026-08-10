@@ -1,0 +1,122 @@
+# Render blueprint — https://render.com/docs/blueprint-spec
+#
+# Deploy with: New > Blueprint, point Render at this repository. It creates
+# the web service and a Postgres instance, and wires the DB credentials in.
+#
+# Values marked `sync: false` are prompted for on first deploy and are never
+# stored in the repo.
+
+databases:
+  - name: foogra-db
+    databaseName: foogra
+    user: foogra
+    plan: free
+
+services:
+  - type: web
+    name: foogra
+    runtime: docker
+    plan: free
+    region: frankfurt          # pick the region closest to your users
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /up       # Laravel's built-in health route
+    autoDeploy: true
+
+    envVars:
+      - key: APP_NAME
+        value: Foogra
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_TIMEZONE
+        value: UTC
+
+      # Generate locally with `php artisan key:generate --show` and paste in.
+      # Leaving it blank makes each container mint a throwaway key, which
+      # invalidates sessions on every restart.
+      - key: APP_KEY
+        sync: false
+
+      # Set both to the full service URL once Render assigns it, e.g.
+      # https://foogra.onrender.com — `fromService: host` is not used here
+      # because it yields a bare hostname, and Laravel's URL generator and
+      # the CORS allow-list both need the scheme.
+      - key: APP_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Sanctum matches bare hosts, so the service hostname works directly.
+      - key: SANCTUM_STATEFUL_DOMAINS
+        fromService:
+          type: web
+          name: foogra
+          property: host
+
+      # ---- Database (Postgres) ---------------------------------- #
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: foogra-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: foogra-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: foogra-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: foogra-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: foogra-db
+          property: password
+
+      # Applies the schema on every boot. Migrations are additive here, and
+      # `--isolated` keeps concurrent containers from racing each other.
+      - key: RUN_MIGRATIONS
+        value: "true"
+      # Flip to "true" for one deploy to load the demo catalogue, then back.
+      - key: RUN_SEEDERS
+        value: "false"
+
+      # ---- Session / cache ------------------------------------- #
+      - key: SESSION_DRIVER
+        value: database
+      # Must stay unset (not "localhost") so the cookie binds to the
+      # onrender.com host the app is actually served from.
+      - key: SESSION_DOMAIN
+        value: ""
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_SAME_SITE
+        value: lax
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: FILESYSTEM_DISK
+        value: public
+
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: warning
+
+      # ---- Mail ------------------------------------------------- #
+      # Mailpit is local-only. Point these at a real SMTP provider before
+      # relying on password-reset or booking-confirmation mail; until then
+      # `log` writes the message bodies to the Render logs instead.
+      - key: MAIL_MAILER
+        value: log
+      - key: MAIL_FROM_ADDRESS
+        value: hello@foogra.test
+      - key: MAIL_FROM_NAME
+        value: Foogra

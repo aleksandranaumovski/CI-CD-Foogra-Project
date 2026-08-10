@@ -1,0 +1,105 @@
+# Rendered by docker/entrypoint.sh — ${PORT} is substituted at boot so the
+# container can bind whatever port the host assigns (Render sets PORT).
+
+user www-data;
+worker_processes auto;
+pid /run/nginx/nginx.pid;
+error_log /dev/stderr warn;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    access_log /dev/stdout;
+
+    sendfile      on;
+    tcp_nopush    on;
+    tcp_nodelay   on;
+    server_tokens off;
+
+    keepalive_timeout 65;
+    client_max_body_size 20m;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 512;
+    gzip_types text/plain text/css text/javascript application/javascript
+               application/json application/xml image/svg+xml;
+
+    server {
+        listen ${PORT};
+        server_name _;
+        root /var/www/html/public;
+
+        index index.html index.php;
+        charset utf-8;
+
+        # Behind Render's proxy the original scheme arrives in
+        # X-Forwarded-Proto; Laravel trusts it (trustProxies(at: '*')).
+        absolute_redirect off;
+
+        # ---- Paths Laravel owns ---------------------------------- #
+        location ^~ /api/ {
+            try_files $uri /index.php?$query_string;
+        }
+
+        location ^~ /sanctum/ {
+            try_files $uri /index.php?$query_string;
+        }
+
+        location ^~ /docs {
+            try_files $uri /index.php?$query_string;
+        }
+
+        # Uploaded media: public/storage is a symlink into storage/app/public,
+        # so nginx serves the file directly and only misses fall through.
+        location ^~ /storage/ {
+            try_files $uri /index.php?$query_string;
+        }
+
+        location = /up {
+            try_files $uri /index.php?$query_string;
+        }
+
+        # ---- Static assets --------------------------------------- #
+        # Vite fingerprints everything under /assets, so it is safe to
+        # cache hard. The template's css/img/video keep a shorter TTL.
+        location ^~ /assets/ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            try_files $uri =404;
+        }
+
+        location ~* \.(?:css|js|jpg|jpeg|png|gif|webp|svg|ico|woff2?|ttf|eot|mp4|webm)$ {
+            expires 7d;
+            add_header Cache-Control "public";
+            try_files $uri =404;
+        }
+
+        # ---- SPA history fallback -------------------------------- #
+        # Any other GET is a client-side route: hand back index.html and
+        # let React Router resolve it.
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # ---- PHP ------------------------------------------------- #
+        location ~ \.php$ {
+            fastcgi_pass 127.0.0.1:9000;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param HTTPS $http_x_forwarded_proto if_not_empty;
+            fastcgi_hide_header X-Powered-By;
+            fastcgi_read_timeout 120;
+        }
+
+        location ~ /\.(?!well-known).* {
+            deny all;
+        }
+    }
+}

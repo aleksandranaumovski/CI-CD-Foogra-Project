@@ -1,0 +1,36 @@
+# Dependencies and build output are produced inside the image, never copied
+# from the host — shipping them would bloat the build context and can mix
+# host-arch binaries into the container.
+backend/vendor
+frontend/node_modules
+frontend/dist
+backend/public/build
+backend/public/hot
+backend/public/storage
+
+# Secrets and local state
+backend/.env
+backend/.env.backup
+backend/.phpunit.result.cache
+backend/storage/logs/*
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/app/public/*
+backend/bootstrap/cache/*.php
+
+# Not needed at runtime
+.git
+.github
+.idea
+.vscode
+**/__pycache__
+**/*.pyc
+docker-compose.yml
+README.md
+backend/README.md
+frontend/README.md
+frontend/placeholder-backup
+frontend/check-hero-video.py
+backend/tests
+backend/api.json
