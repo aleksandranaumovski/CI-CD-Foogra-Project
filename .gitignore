@@ -26,11 +26,9 @@
 # Generated API specification — regenerate with `php artisan scramble:export`
 /backend/api.json
 
-# The Foogra template assets are copied in by frontend/copy-assets.sh rather
-# than committed, since they belong to the purchased ThemeForest licence.
-/frontend/public/css
-/frontend/public/img
-/frontend/public/video
+# The Foogra template assets under frontend/public/{css,img,video} are now
+# committed rather than copied in by frontend/copy-assets.sh: Render builds
+# from this repository, so anything absent here 404s on the deployed site.
 /frontend/placeholder-backup
 
 # Python bytecode from the helper scripts
