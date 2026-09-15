@@ -77,12 +77,20 @@ spec:
           # supervisord runs as root so it can start both php-fpm and nginx;
           # nginx's master then setuid()s its workers down to www-data,
           # which needs CAP_SETUID/CAP_SETGID kept — dropping ALL here would
-          # make that setuid() fail and crash-loop the container.
+          # make that setuid() fail and crash-loop the container. CHOWN is
+          # kept too: entrypoint.sh chowns storage/bootstrap-cache (and the
+          # uploads PVC, which mounts as root-owned) to www-data on every
+          # boot. FOWNER is kept because right after that chown, root no
+          # longer owns those paths, so the following chmod needs it too.
+          # DAC_OVERRIDE is kept because entrypoint.sh then runs `php
+          # artisan config:cache` etc *as root* against those now
+          # www-data-owned directories — without it, plain root can no
+          # longer bypass the permission bits the way it normally would.
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-              add: ["SETUID", "SETGID"]
+              add: ["SETUID", "SETGID", "CHOWN", "FOWNER", "DAC_OVERRIDE"]
           resources:
             requests:
               cpu: 100m

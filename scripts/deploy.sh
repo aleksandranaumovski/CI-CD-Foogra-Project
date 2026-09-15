@@ -21,7 +21,7 @@ sed -i -E "s#(newTag: ).*#\1${TAG}#g" k8s/kustomization.yaml
 kubectl apply -k k8s/
 
 kubectl -n foogra rollout status statefulset/db --timeout=180s
-kubectl -n foogra rollout status deployment/api --timeout=180s
+kubectl -n foogra rollout status deployment/api --timeout=300s
 kubectl -n foogra rollout status deployment/web --timeout=180s
 
 echo

@@ -30,11 +30,14 @@ spec:
           livenessProbe:
             httpGet: { path: /healthz, port: http }
             periodSeconds: 20
+          # nginx's master chowns /var/cache/nginx/* to the "nginx" user at
+          # startup before its own setuid()/setgid() worker drop — needs
+          # CAP_CHOWN kept alongside SETUID/SETGID, or it fails to boot.
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
               drop: ["ALL"]
-              add: ["SETUID", "SETGID"]
+              add: ["SETUID", "SETGID", "CHOWN"]
           resources:
             requests:
               cpu: 50m

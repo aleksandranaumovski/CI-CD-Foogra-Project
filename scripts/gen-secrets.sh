@@ -33,9 +33,11 @@ api_secret_file="k8s/31-api-secret.yaml"
 if [ -f "$db_secret_file" ] && grep -q "REPLACE_ME_mysql_password" "$db_secret_file"; then
   db_password="$(rand_b64 18)"
   root_password="$(rand_b64 18)"
+  # base64 output can contain '/' — use a delimiter sed won't confuse with
+  # the payload itself (same reasoning as the APP_KEY patch below).
   sed -i \
-    -e "s/REPLACE_ME_mysql_password/${db_password}/g" \
-    -e "s/REPLACE_ME_mysql_root_password/${root_password}/g" \
+    -e "s#REPLACE_ME_mysql_password#${db_password}#g" \
+    -e "s#REPLACE_ME_mysql_root_password#${root_password}#g" \
     "$db_secret_file"
   echo "patched ${db_secret_file}"
 else
