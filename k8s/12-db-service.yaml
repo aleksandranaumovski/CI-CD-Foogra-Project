@@ -1,0 +1,15 @@
+# Headless (clusterIP: None) so each pod gets a stable DNS name —
+# db-0.db.foogra.svc.cluster.local — as required by the StatefulSet.
+apiVersion: v1
+kind: Service
+metadata:
+  name: db
+  namespace: foogra
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306

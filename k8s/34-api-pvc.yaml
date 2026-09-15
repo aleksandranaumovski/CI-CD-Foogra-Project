@@ -1,0 +1,13 @@
+# Restaurant/menu images uploaded through the dashboard land on
+# storage/app/public (FILESYSTEM_DISK=public in api-config). Without a
+# volume that path is container-local ext4 and every rollout would wipe it.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: api-uploads
+  namespace: foogra
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 2Gi

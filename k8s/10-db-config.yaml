@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: db-config
+  namespace: foogra
+data:
+  MYSQL_DATABASE: "foogra"
+  MYSQL_USER: "foogra"
+  # mysqld args (character set / collation) — mounted by the StatefulSet
+  # as command flags, kept here so they live next to the rest of the DB
+  # configuration instead of hardcoded in the pod spec.
+  MYSQL_CHARACTER_SET: "utf8mb4"
+  MYSQL_COLLATION: "utf8mb4_unicode_ci"

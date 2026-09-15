@@ -11,6 +11,10 @@
 /backend/.env
 /backend/.env.backup
 
+# Root .env — docker-compose.yml secrets (APP_KEY), written by
+# scripts/gen-secrets.sh. Never committed.
+/.env
+
 # Laravel runtime
 /backend/storage/*.key
 /backend/storage/app/public/*

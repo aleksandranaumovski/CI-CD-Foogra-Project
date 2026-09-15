@@ -233,3 +233,79 @@ The restaurant photographs *are* the template's own placeholders — grey 460×3
 | `FRONTEND_URL` | `http://localhost:5173` | CORS, Sanctum, and password-reset links |
 
 The frontend proxies `/api` and `/storage` to `localhost:8000` in development, so there is no CORS preflight while developing. For a deployed build set `VITE_API_URL` to the API's origin.
+
+---
+
+## DevOps: containerized multi-service deployment
+
+The root `Dockerfile` bakes the SPA into Laravel's `public/` for a single-container
+Render deploy — see the comment at the top of that file. Alongside it, `docker/`
+also has a **split** setup: three independently built and deployed services
+(`web`, `api`, `db`), used by `docker-compose.yml`'s `api`/`web` services, by
+`.github/workflows/ci-cd.yml`, and by `k8s/`.
+
+```
+docker/
+├── api.Dockerfile          backend-only image (php-fpm + nginx, no SPA)
+├── api/nginx.conf          API routes + PHP only, no static/SPA fallback
+├── api/entrypoint.sh       key check, caches, migrations — no PORT templating
+├── frontend.Dockerfile     SPA build → its own nginx image
+├── web/nginx.conf.template SPA + reverse proxy to the api service
+├── php/, supervisord.conf  shared with the combined Render image
+└── entrypoint.sh, nginx.conf.template   (combined image only, unchanged)
+```
+
+### Run it locally with Docker Compose
+
+```bash
+./scripts/gen-secrets.sh        # writes ./.env with a real APP_KEY
+docker compose up -d --build mysql api web
+docker compose ps
+```
+
+| Service | URL |
+|---|---|
+| App (React SPA, proxies `/api` server-side) | <http://localhost:8081> |
+| API directly | <http://localhost:8080/api/v1/health> |
+
+`mysql_test` and `mailpit` from the original compose file are unaffected —
+they still back local `php artisan serve` / `npm run dev` development.
+
+### CI/CD
+
+`.github/workflows/ci-cd.yml` builds and pushes `foogra-api` and `foogra-web`
+to Docker Hub on every push to `main` (tags: `latest`, `sha-<short>`, branch
+name). Needs repo secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. A second,
+optional `deploy` job rolls the new images out to a Kubernetes cluster with
+`kubectl apply -k k8s/`; it no-ops automatically unless `KUBE_CONFIG` (base64
+kubeconfig) plus `DB_PASSWORD`, `DB_ROOT_PASSWORD` and `APP_KEY` are set as
+repo secrets.
+
+### Kubernetes
+
+All resources live in their own `foogra` namespace. `k8s/` has a `Deployment`
++ `ConfigMap`/`Secret` for the API, a `Deployment` (2 replicas) for the
+frontend, `ClusterIP` Services for both, an `Ingress` routing `/api`,
+`/sanctum`, `/docs`, `/storage` to the API and everything else to the
+frontend, and a `StatefulSet` (with `volumeClaimTemplates`) + headless
+`Service` for MySQL, so the database keeps its data and its stable
+`db-0.db.foogra.svc.cluster.local` identity across restarts.
+
+```bash
+./scripts/cluster-up.sh                       # minikube + ingress addon
+./scripts/gen-secrets.sh                      # real secrets into k8s/*-secret.yaml
+./scripts/load-images.sh <dockerhub-username> dev
+./scripts/deploy.sh <dockerhub-username> dev  # apply -k + wait for rollout
+
+kubectl -n foogra get all
+kubectl -n foogra get ingress
+```
+
+Verify end-to-end through the Ingress (`Host: foogra.local`, since minikube's
+docker driver on Windows/WSL isn't reachable directly from the host):
+
+```bash
+kubectl -n ingress-nginx port-forward svc/ingress-nginx-controller 18080:80 &
+curl -H "Host: foogra.local" http://127.0.0.1:18080/api/v1/health
+curl -H "Host: foogra.local" http://127.0.0.1:18080/
+```

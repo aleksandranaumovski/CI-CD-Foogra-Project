@@ -1,0 +1,95 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: foogra
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: api
+    spec:
+      # Runs `migrate --force` once before the app container starts, using
+      # the same image. Idempotent — safe on every rollout, and it means
+      # the api container itself never has to migrate on boot (no race if
+      # this Deployment is ever scaled beyond one replica).
+      initContainers:
+        - name: migrate
+          image: DOCKERHUB_USERNAME/foogra-api:latest
+          command: ["php", "artisan", "migrate", "--force"]
+          envFrom:
+            - configMapRef:
+                name: api-config
+            - secretRef:
+                name: api-secret
+          env:
+            - name: DB_DATABASE
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_DATABASE }
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_USER }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: MYSQL_PASSWORD }
+      containers:
+        - name: api
+          image: DOCKERHUB_USERNAME/foogra-api:latest
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: api-config
+            - secretRef:
+                name: api-secret
+          env:
+            - name: DB_DATABASE
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_DATABASE }
+            - name: DB_USERNAME
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_USER }
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: db-secret, key: MYSQL_PASSWORD }
+          volumeMounts:
+            - name: uploads
+              mountPath: /var/www/html/storage/app/public
+          # Laravel's app-level health check — exercises routing, config and
+          # (indirectly) that the process is actually serving requests.
+          startupProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            failureThreshold: 30
+            periodSeconds: 5
+          readinessProbe:
+            httpGet: { path: /api/v1/health, port: http }
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /up, port: http }
+            periodSeconds: 20
+          # supervisord runs as root so it can start both php-fpm and nginx;
+          # nginx's master then setuid()s its workers down to www-data,
+          # which needs CAP_SETUID/CAP_SETGID kept — dropping ALL here would
+          # make that setuid() fail and crash-loop the container.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+              add: ["SETUID", "SETGID"]
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+      volumes:
+        - name: uploads
+          persistentVolumeClaim:
+            claimName: api-uploads

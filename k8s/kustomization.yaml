@@ -1,0 +1,33 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: foogra
+
+resources:
+  - 00-namespace.yaml
+  - 10-db-config.yaml
+  - 11-db-secret.yaml
+  - 12-db-service.yaml
+  - 13-db-statefulset.yaml
+  - 30-api-config.yaml
+  - 31-api-secret.yaml
+  - 32-api-deployment.yaml
+  - 34-api-pvc.yaml
+  - 33-api-service.yaml
+  - 40-web-deployment.yaml
+  - 42-web-service.yaml
+  - 50-ingress.yaml
+
+# Kustomize applies this images: transform *after* whatever is in the pod
+# specs above, so the image tag actually deployed is defined here — the
+# DOCKERHUB_USERNAME/newTag placeholders below and the ones inlined in
+# 32-api-deployment.yaml / 40-web-deployment.yaml must both be replaced by
+# scripts/deploy.sh (or they silently diverge, and kubectl pulls the wrong
+# image).
+images:
+  - name: DOCKERHUB_USERNAME/foogra-api
+    newName: DOCKERHUB_USERNAME/foogra-api
+    newTag: latest
+  - name: DOCKERHUB_USERNAME/foogra-web
+    newName: DOCKERHUB_USERNAME/foogra-web
+    newTag: latest

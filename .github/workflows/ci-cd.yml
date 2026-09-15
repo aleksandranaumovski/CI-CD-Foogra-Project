@@ -1,0 +1,119 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  pull_request:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build & push (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        include:
+          - service: api
+            dockerfile: docker/api.Dockerfile
+            image: foogra-api
+          - service: web
+            dockerfile: docker/frontend.Dockerfile
+            image: foogra-web
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata (tags)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/${{ matrix.image }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=sha,format=short
+            type=ref,event=branch
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ---------------------------------------------------------------- #
+  # Optional CD stage (bonus). Skipped automatically when KUBE_CONFIG #
+  # is not set as a repository secret — it never fails the pipeline, #
+  # it just does not run.                                            #
+  # ---------------------------------------------------------------- #
+  deploy:
+    name: Deploy to Kubernetes
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check KUBE_CONFIG is configured
+        id: gate
+        run: |
+          if [ -n "${{ secrets.KUBE_CONFIG }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::KUBE_CONFIG secret not set — skipping deploy stage."
+          fi
+
+      - name: Set up kubectl
+        if: steps.gate.outputs.configured == 'true'
+        uses: azure/setup-kubectl@v4
+
+      - name: Configure kubeconfig
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: Inject real secrets into manifests
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          sed -i \
+            -e "s#REPLACE_ME_mysql_password#${{ secrets.DB_PASSWORD }}#g" \
+            -e "s#REPLACE_ME_mysql_root_password#${{ secrets.DB_ROOT_PASSWORD }}#g" \
+            k8s/11-db-secret.yaml
+          sed -i "s#REPLACE_ME_app_key#${{ secrets.APP_KEY }}#g" k8s/31-api-secret.yaml
+
+      - name: Set image tags to this build's SHA
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          sed -i "s#newTag: .*#newTag: sha-${short_sha}#" k8s/kustomization.yaml
+
+      - name: Apply manifests
+        if: steps.gate.outputs.configured == 'true'
+        run: kubectl apply -k k8s/
+
+      - name: Wait for rollout
+        if: steps.gate.outputs.configured == 'true'
+        run: |
+          kubectl -n foogra rollout status deployment/api --timeout=180s
+          kubectl -n foogra rollout status deployment/web --timeout=180s

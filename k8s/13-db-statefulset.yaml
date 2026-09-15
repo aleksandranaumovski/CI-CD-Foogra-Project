@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+  namespace: foogra
+spec:
+  serviceName: db
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: mysql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: mysql
+    spec:
+      # 999 is the mysql user/group baked into the official mysql image —
+      # needed so it can write to the PVC mounted by a different uid.
+      securityContext:
+        fsGroup: 999
+      containers:
+        - name: mysql
+          image: mysql:8.4
+          args:
+            - "--character-set-server=$(MYSQL_CHARACTER_SET)"
+            - "--collation-server=$(MYSQL_COLLATION)"
+          envFrom:
+            - configMapRef:
+                name: db-config
+            - secretRef:
+                name: db-secret
+          # $(VAR) expansion in args only resolves vars from this explicit
+          # env: list, not ones pulled in via envFrom above — so the two
+          # args flags above need their own entries here too.
+          env:
+            - name: MYSQL_CHARACTER_SET
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_CHARACTER_SET }
+            - name: MYSQL_COLLATION
+              valueFrom:
+                configMapKeyRef: { name: db-config, key: MYSQL_COLLATION }
+          ports:
+            - name: mysql
+              containerPort: 3306
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 768Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 3Gi

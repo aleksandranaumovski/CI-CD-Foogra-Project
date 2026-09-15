@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: foogra
+data:
+  APP_NAME: "Foogra"
+  APP_ENV: "production"
+  APP_DEBUG: "false"
+  APP_URL: "http://foogra.local"
+  FRONTEND_URL: "http://foogra.local"
+  LOG_CHANNEL: "stderr"
+  DB_CONNECTION: "mysql"
+  DB_HOST: "db"
+  DB_PORT: "3306"
+  SESSION_DRIVER: "database"
+  SESSION_DOMAIN: "foogra.local"
+  SANCTUM_STATEFUL_DOMAINS: "foogra.local"
+  CACHE_STORE: "database"
+  QUEUE_CONNECTION: "database"
+  FILESYSTEM_DISK: "public"
+  # No mail service is deployed in-cluster for this assignment — password
+  # reset / booking mails are simply written to the container log.
+  MAIL_MAILER: "log"
+  # Off after the first boot: an init container runs the initial migration
+  # once (see 32-api-deployment.yaml); the app container itself never
+  # migrates on restart.
+  RUN_MIGRATIONS: "false"
+  RUN_SEEDERS: "false"
