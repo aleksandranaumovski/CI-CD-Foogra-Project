@@ -19,8 +19,9 @@ Plus a **dashboard** at `/admin` for administrators and restaurant owners.
 Prerequisites: **PHP 8.3+**, **Composer 2**, **Node 20+**, **Docker**.
 
 ```bash
-# 1. Databases and mail catcher
-docker compose up -d
+# 1. Databases and mail catcher (only these three — `api` and `web` are the
+#    containerized app, see "DevOps" below)
+docker compose up -d mysql mysql_test mailpit
 
 # 2. Backend
 cd backend
@@ -227,7 +228,7 @@ The restaurant photographs *are* the template's own placeholders — grey 460×3
 
 | Variable | Default | Notes |
 |---|---|---|
-| `DB_PORT` | `3307` | App database container |
+| `DB_PORT` | `3310` | App database container (`mysql` service) |
 | `DB_TEST_PORT` | `3308` | Test database container |
 | `MAIL_PORT` | `1025` | Mailpit SMTP; web UI on 8025 |
 | `FRONTEND_URL` | `http://localhost:5173` | CORS, Sanctum, and password-reset links |
@@ -265,21 +266,39 @@ docker compose ps
 
 | Service | URL |
 |---|---|
-| App (React SPA, proxies `/api` server-side) | <http://localhost:8081> |
-| API directly | <http://localhost:8080/api/v1/health> |
+| App (React SPA, proxies `/api` server-side) | <http://localhost:8091> |
+| API directly | <http://localhost:8090/api/v1/health> |
+
+`web` waits for `api` to be healthy, and `api` waits for `mysql`
+(`depends_on` + `condition: service_healthy`). The `api` container runs the
+migrations and seeders on first boot (`RUN_MIGRATIONS` / `RUN_SEEDERS`), so the
+demo data is there straight away. Database data lives in the `mysql_data`
+volume; `docker compose down -v` wipes it.
 
 `mysql_test` and `mailpit` from the original compose file are unaffected —
 they still back local `php artisan serve` / `npm run dev` development.
 
+> The database credentials in `docker-compose.yml` (`root` / `secret`) are
+> throwaway values for local use only. The Kubernetes setup never uses them —
+> it generates its own (see below).
+
 ### CI/CD
 
-`.github/workflows/ci-cd.yml` builds and pushes `foogra-api` and `foogra-web`
-to Docker Hub on every push to `main` (tags: `latest`, `sha-<short>`, branch
-name). Needs repo secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`. A second,
-optional `deploy` job rolls the new images out to a Kubernetes cluster with
-`kubectl apply -k k8s/`; it no-ops automatically unless `KUBE_CONFIG` (base64
+`.github/workflows/ci-cd.yml` has three jobs:
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `test` | every push and pull request | Runs the 136 backend feature tests (`php artisan test`) against a MySQL 8.4 service container. Independent of `build`, so a test failure never blocks the image push. |
+| `build` | every push and pull request | Builds `foogra-api` and `foogra-web` in parallel (matrix). Pull requests only build; pushes to `main` also publish to Docker Hub (tags: `latest`, `sha-<short>`, branch name). |
+| `deploy` | push to `main`, after `build` | Optional CD stage (bonus). Rolls the new images out to a Kubernetes cluster with `kubectl apply -k k8s/`. |
+
+Needs repo secrets `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`.
+
+The `deploy` job is **skipped, not failed,** unless `KUBE_CONFIG` (base64
 kubeconfig) plus `DB_PASSWORD`, `DB_ROOT_PASSWORD` and `APP_KEY` are set as
-repo secrets.
+repo secrets — no cluster is wired to this repository, so by default the
+pipeline stops after publishing the images. The Kubernetes deployment itself
+is demonstrated on a local minikube cluster (below).
 
 ### Kubernetes
 
@@ -291,6 +310,12 @@ frontend, and a `StatefulSet` (with `volumeClaimTemplates`) + headless
 `Service` for MySQL, so the database keeps its data and its stable
 `db-0.db.foogra.svc.cluster.local` identity across restarts.
 
+**The committed manifests are templates, not directly applicable.** They hold
+`REPLACE_ME_*` secret values and `DOCKERHUB_USERNAME/...` image names, so a
+plain `kubectl apply -k k8s/` on a fresh clone fails with image-pull errors and
+useless credentials. Use the scripts below (or the CI `deploy` job), which fill
+those in.
+
 ```bash
 ./scripts/cluster-up.sh                       # minikube + ingress addon
 ./scripts/gen-secrets.sh                      # real secrets into k8s/*-secret.yaml
@@ -299,7 +324,19 @@ frontend, and a `StatefulSet` (with `volumeClaimTemplates`) + headless
 
 kubectl -n foogra get all
 kubectl -n foogra get ingress
+
+# The K8s deployment only runs migrations, not seeders. Load the demo data once:
+kubectl -n foogra exec deploy/api -- php artisan db:seed --force
 ```
+
+> **Before you commit:** `gen-secrets.sh` and `deploy.sh` edit the files in
+> `k8s/` in place (real secrets, your Docker Hub username, the image tag).
+> Run `git diff k8s/` first and `git checkout -- k8s/` to restore the
+> placeholders — never commit real credentials.
+>
+> The image name and tag are also defined twice — in the two Deployments and in
+> the `images:` block of `k8s/kustomization.yaml`. `deploy.sh` keeps them in
+> sync; if you edit one by hand, edit both.
 
 Verify end-to-end through the Ingress (`Host: foogra.local`, since minikube's
 docker driver on Windows/WSL isn't reachable directly from the host):

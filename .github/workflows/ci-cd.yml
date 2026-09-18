@@ -8,6 +8,56 @@ on:
   workflow_dispatch: {}
 
 jobs:
+  # Backend test-suite. Deliberately independent of `build` (no `needs:`), so a
+  # failing test is reported without blocking the Docker image publish.
+  # The schema uses MySQL-only features (FULLTEXT, FIELD(), haversine), so this
+  # runs against a real MySQL 8.4 service rather than SQLite.
+  test:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: foogra_test
+          MYSQL_USER: foogra
+          MYSQL_PASSWORD: secret
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DB_TEST_HOST: 127.0.0.1
+      DB_TEST_PORT: "3306"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: bcmath, intl, pdo_mysql, zip
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Generate a throwaway APP_KEY
+        run: echo "APP_KEY=$(php artisan key:generate --show)" >> "$GITHUB_ENV"
+
+      - name: Run tests
+        run: php artisan test
+
   build:
     name: Build & push (${{ matrix.service }})
     runs-on: ubuntu-latest
