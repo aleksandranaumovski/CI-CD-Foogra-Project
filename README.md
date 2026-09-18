@@ -79,7 +79,7 @@ hackaton-project/
 │   │   └── Services/      RestaurantSearch (filters + facets), ImageStorage
 │   ├── database/          Migrations, factories, seeders
 │   ├── scripts/           smoke-test.sh — 77 end-to-end HTTP checks
-│   └── tests/Feature/     136 tests
+│   └── tests/Feature/     142 tests
 └── frontend/              React 19 + Vite + TypeScript
     ├── public/            Foogra template assets (copied, not committed)
     └── src/
@@ -177,7 +177,7 @@ The response carries a `facets` block with per-category, per-rating-band and per
 
 ```bash
 cd backend
-php artisan test                  # 136 feature tests, 477 assertions
+php artisan test                  # 142 feature tests, 489 assertions
 bash scripts/smoke-test.sh        # 77 live HTTP checks against a running server
 ```
 
@@ -288,7 +288,7 @@ they still back local `php artisan serve` / `npm run dev` development.
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `test` | every push and pull request | Runs the 136 backend feature tests (`php artisan test`) against a MySQL 8.4 service container. Independent of `build`, so a test failure never blocks the image push. |
+| `test` | every push and pull request | Runs the 142 backend feature tests (`php artisan test`) against a MySQL 8.4 service container. Independent of `build`, so a test failure never blocks the image push. |
 | `build` | every push and pull request | Builds `foogra-api` and `foogra-web` in parallel (matrix). Pull requests only build; pushes to `main` also publish to Docker Hub (tags: `latest`, `sha-<short>`, branch name). |
 | `deploy` | push to `main`, after `build` | Optional CD stage (bonus). Rolls the new images out to a Kubernetes cluster with `kubectl apply -k k8s/`. |
 
